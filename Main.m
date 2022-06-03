@@ -42,42 +42,13 @@ end
 x_box = [-Inf Inf; -Inf, Inf; -Inf Inf; -Inf, Inf; -Inf, Inf;-Inf, Inf;-Inf, Inf];
 u_box = [0 33^2];
 
-[ocp, x, u,d,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, 150, 1, x0=full(evalf(x0)), x_box=x_box, u_box=u_box, nd=1,foh=true);
+[ocp, x, u,d,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, 150, 0.1, x0=full(evalf(x0)), x_box=x_box, u_box=u_box, nd=1,foh=true);
 ocp.set_value(varout{3},arrayfun(@(t) StochasticWave(t),[1:1:150+1]));
 ocp.minimize(x(7,end)-x(6,end));
 costs = ([-x(6,end) x(7,end)]);
 sol = ocp.solve();
 
-figure(2)
-subplot(2,2,1)
-% A = MX([0 ;1]);
 
-% [p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="wmm" );
-
-%%
-[sol, ~] = awds( ocp, norm_costfun, ep, p_params );
-% cost = arrayfun(cost_energy,x,u,d)
-% ocp.minimize(cost_damage(x,u))
-%%
-%% Plotting the Pareto Front
-J = [];
-for i = 1:length(sol)
-    J = [J; sol(i).value(costs)];
-end
-
-plot(J(:,1), J(:,2), '.')
-
-%%Show Order
-%%
-
-
-figure
-for i = 1:length(J)
-    scatter(J(i,1), J(i,2), 100,'filled')
-    text(J(i,1), J(i,2),['\leftarrow',int2str(i)],'Interpreter','tex')
-    hold on 
-%     pause(1);
-end
 
 %%
 DrawInput = @(i) plot(sol(i).value(u))
