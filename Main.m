@@ -1,114 +1,17 @@
-x0 = zeros(7,1);
-% L = 100;
-Path = zeros(200,8);
+%Base Version: Initialize OCP and set cost function and disturbance
+timehorizon =100;
+timestep = 0.1;
+[ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 
-
-
-import casadi.*
-load('/home/heib/Documents/HIWI/Flaßkamp/WaveHarvesting/DEA-Wave-Harvesting/PolySurge_inputs.mat', 'Ac', 'Bc', 'gamma');
-slacks = MX;
-wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
-                            cost_energy(x,u,d);
-                            cost_damage(x,u)
-                            ];
-for i = 1:200
-if i <=100
-    
-x0 = integrator_step_disturbed(x0,[0],1,wave_dgl,StochasticWave(i));
-Path(i,1:7) = transpose(full((evalf(x0))));
-Path(i,8) = StochasticWave(i);
-else
-  x0= integrator_step_disturbed(x0,[0],1,wave_dgl,0);
-
-
-Path(i,1:7) = transpose(full((evalf(x0))));
- 
-end
-end
-% To visualize execute:
-if (false)
-figure(1);
-plot(Path(:,2));
-
-hold on
-yyaxis right
-plot(Path(:,8))
-end
-% %%
-% ode45(wave_dgl,10,)
 %%
-
-%% Basic implementation Just run once. 
-x_box = [-Inf Inf; -Inf, Inf; -Inf Inf; -Inf, Inf; -Inf, Inf;-Inf, Inf;-Inf, Inf];
-u_box = [0 33^2];
-
-[ocp, x, u,d,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, 150, 0.1, x0=full(evalf(x0)), x_box=x_box, u_box=u_box, nd=1,foh=true);
-ocp.set_value(varout{3},arrayfun(@(t) StochasticWave(t),[1:1:150+1]));
-ocp.minimize(x(7,end)-x(6,end));
-costs = ([-x(6,end) x(7,end)]);
+ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+ocp.minimize(x(6,end));
 sol = ocp.solve();
 
+%% Plot if wanted
 
-
-%%
-DrawInput = @(i) plot(sol(i).value(u))
-% figure
-% for i = 1:16
-%     subplot(4,4,i)
-%     DrawInput(i)
-% end
-
-function x_end = integrator_step_disturbed(x0, u, dt, odefun, d)
-% calculate one integration step with step size dt
-import casadi.*
-
-x0_rk = x0;
-k = casadi.MX( size( x0, 1 ), 4 );
-
-if size(u,2) == 1
-    k(:,1) = odefun(x0_rk(:,end)                  , u, d);
-    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u, d);
-    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u, d);
-    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u, d);
-else
-    k(:,1) = odefun(x0_rk(:,end)                  , u(:,1),       d(:,1));
-    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u*[0.5; 0.5], d*[0.5; 0.5]);
-    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u*[0.5; 0.5], d*[0.5; 0.5]);
-    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(:,2),       d(:,2));
-end
-
-x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
-
-end
-%%
-% function xdot = wave_dgl(x,u,d)
-% 
-% 
-% import casadi.*
-% 
-% load('/home/heib/Documents/HIWI/Flaßkamp/WaveHarvesting/DEA-Wave-Harvesting/PolySurge_inputs.mat', 'Ac', 'Bc', 'gamma');
-% 
-% slacks = MX;
-% 
-% % definition ode
-% %  xdot = @(x, u, d, slacks) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
-% %                      cost_energy(x, u, d, slacks)];
-%                    xdot =  @(x,u,d) Ac * x - Bc * 1e6 * u * gamma * x(2) + Bc * d;
-
-% end
-
-
-function cost = cost_energy(x, u, d)
-    persistent Ch S R0
-    
-    if isempty(Ch) || isempty(S) || isempty(R0)
-        load('/home/heib/Documents/HIWI/Flaßkamp/WaveHarvesting/DEA-Wave-Harvesting/PolySurge_inputs.mat', 'Ch', 'S', 'R0');
-    end
-    cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
-end
-
-function cost = cost_damage(x, u, ~, ~)   
-%     cost = (max(u - 484/(cos(x(2)).^2), 0).^2)*1e-6;
-    cost = (max(u - 484, 0).^2)*1e-6;
-end
-
+figure(1)
+plot(sol.value(x(2,:)))
+hold on
+yyaxis right
+plot(sol.value(u))
