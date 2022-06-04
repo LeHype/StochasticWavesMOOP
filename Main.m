@@ -3,7 +3,7 @@ timehorizon =50;
 timestep = 0.4;
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 
-
+%Test to check Git flow
 %% Specify Pareto algorythm 
 Algo = 'nbi';   %Options are awds or nbi as of now
 %%
