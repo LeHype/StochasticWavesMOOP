@@ -1,21 +1,34 @@
-%Base Version: Initialize OCP and set cost function and disturbance
-timehorizon =20;
-timestep = 0.1;
+%Multiobjective OCP: Initialize OCP and set cost function and disturbance
+timehorizon =50;
+timestep = 0.4;
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 
+
+%% Specify Pareto algorythm 
+Algo = 'nbi';   %Options are awds or nbi as of now
 %%
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
 
 %Take Both Costs
+
 costs = ([-x(6,end) x(7,end)]);
 
-%Scalarize i.e. get a sense of how much bigger one costfunction is then the
-%other
-[p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="wmm" );
-p_params= transpose(p_params);
-%% Run the multiobjective obtimization
-[sol, ~] = awds( ocp, norm_costfun, ep, p_params );
+%% Here the ocp is scalarized and then the chosen pareto Algorythm is run
+switch Algo
+    case 'nbi'
+        [p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="nbi" );
+        [sol, ~] = nbi2d( ocp,ep, p_params, 15);
+    case 'awds'
+        [p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="wmm" );
+        p_params= transpose(p_params);
+        [sol, ~] = awds( ocp, norm_costfun, ep, p_params );
+    otherwise
+        warning('No valid Algorythm selected')
+end
+    
+
+
 %% Plotting the Pareto Front  \\This is super jank 
 J = [];
 J2 = [];
@@ -38,24 +51,25 @@ end
 
 
 %% Plot if wanted
-i = 13;
+time = [0:timestep:timehorizon];
+i = 16;
 figure(i+10)
 subplot(2,2,1)
-plot(sol(i).value(x(2,:)))
+plot(time,sol(i).value(x(2,:)))
 title(['Angle of Model'])
 subplot(2,2,2)
-plot(sol(i).value(u))
+plot(time,sol(i).value(u))
 title(['Input u'])
 subplot(2,2,3)
-plot(sol(i).value(d))
+plot(time,sol(i).value(d))
 title(['Wave exitation'])
 subplot(2,2,4)
-plot(sol(i).value(x(6,:)),'g')
+plot(time,sol(i).value(x(6,:)),'g')
 ylabel(['Energy harvested'])
 title(['Energy harvested and damage done'])
 hold on 
 yyaxis right
-plot(sol(i).value(x(7,:)),'r')
+plot(time,sol(i).value(x(7,:)),'r')
 ylabel(['Damage done'])
 hold on
 yyaxis right
