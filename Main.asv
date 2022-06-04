@@ -1,4 +1,4 @@
-%Multiobjective OCP: Initialize OCP and set cost function and disturbance
+%Base Version: Initialize OCP and set cost function and disturbance
 timehorizon =20;
 timestep = 0.1;
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
@@ -38,7 +38,7 @@ end
 
 
 %% Plot if wanted
-i = 16;
+i = 13;
 figure(i+10)
 subplot(2,2,1)
 plot(sol(i).value(x(2,:)))
