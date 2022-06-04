@@ -10,9 +10,34 @@ Algo = 'nbi';   %Options are awds or nbi as of now
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
 
-%Take Both Costs
+%% Take Both Costs
+tic;
 
-costs = ([-x(6,end) x(7,end)]);
+timehorizon =50;
+timestep = 0.4;
+weight = [0:1/20:1];
+solA = cell(20,1);
+ocpA = cell(20,1);
+UARRAY = zeros((timehorizon/timestep)+1,20);
+for i = 1:20
+    ocpA{i}=ocp.copy();
+end
+J = zeros(2,20);
+parfor i = 1:20
+
+ [ocpA{i},x,u,d] = initializeOCP(timehorizon,timestep);
+ costs = [x(6,end) x(7,end)];
+ ocpA{i}.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+ ocpA{i}.minimize(costs(1)*weight(i)+costs(2)*(1-weight(i)));
+ solA{i}=ocpA{i}.solve();
+
+ UARRAY(:,i) = (solA{i}.value(u));
+ocpA{i} = [];
+ J(:,i) = [solA{i}.value(x(6,end)) solA{i}.value(x(7,end))];
+
+end
+disp('Computation took')
+disp(toc);
 
 %% Here the ocp is scalarized and then the chosen pareto Algorythm is run
 switch Algo
@@ -30,11 +55,11 @@ end
 
 
 %% Plotting the Pareto Front  \\This is super jank 
-J = [];
+% J = [];
 J2 = [];
-for i = 1:length(sol)
-    J = [J; sol(i).value(costs)];
-end
+% for i = 1:length(sol)
+%     J = [J; sol(i).value(costs)];
+% end
 NonDomInc = ParetoFilter(J);
 for i = 1:length(NonDomInc)
     J2(i,:) = [[J(NonDomInc(i),:)],NonDomInc(i)];
