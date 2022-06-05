@@ -10,10 +10,10 @@ end
 NumInc =round(timehorizon/(dt));
 
 
+
 %Construct the basic OCP from the ODE . only return the ode
 %object. Will not apply disturbance and cost function. 
 
-x0 = zeros(7,1);
 
 
 
@@ -29,19 +29,25 @@ wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
                             cost_energy(x,u,d);
                             cost_damage(x,u)
                             ];
-for i = 1:100
-if i <=100
+
+persistent x0
+if isempty(x0)
+disp('I ran this')
+    x0 = zeros(7,1);
+    for i = 1:100
+    if i <=100
     
-x0 = integrator_step_disturbed(x0,[0],1,wave_dgl,StochasticWave(i));
-Path(i,1:7) = transpose(full((evalf(x0))));
-Path(i,8) = StochasticWave(i);
-else
-  x0= integrator_step_disturbed(x0,[0],1,wave_dgl,0);
+        x0 = integrator_step_disturbed(x0,[0],1,wave_dgl,StochasticWave(i));
+        Path(i,1:7) = transpose(full((evalf(x0))));
+        Path(i,8) = StochasticWave(i);
+    else
+        x0= integrator_step_disturbed(x0,[0],1,wave_dgl,0);
 
 
 Path(i,1:7) = transpose(full((evalf(x0))));
  
 end
+    end
 end
 % To visualize execute:
 if (false)

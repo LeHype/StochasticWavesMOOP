@@ -1,16 +1,58 @@
 %Multiobjective OCP: Initialize OCP and set cost function and disturbance
 timehorizon =50;
 timestep = 0.4;
+nPoints = 15
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 
-%Test to check Git flow
-%% Specify Pareto algorythm 
-Algo = 'nbi';   %Options are awds or nbi as of now
-%%
+% opti.set_initial(sol1.value_variables());
+
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
 
-%% Take Both Costs
+
+[p_params,up,np, ep, norm_costfun] = Jank_scalarize_moocp( ocp, costs, method="nbi" );
+
+
+%%
+[ocp bp_pts,spt,ndir] = NewJank( ocp,ep, p_params, 15);
+ocp.set_value(spt,bp_pts(1,:));
+
+
+%%
+J = zeros(nPoints,2);
+Jprime = zeros(nPoints,2);
+UARRAY = zeros((timehorizon/timestep)+1,nPoints);
+parfor i = 1:15
+    disp(i)
+[ocp,x,u,d] = initializeOCP(timehorizon,timestep);
+
+
+ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+
+costs= ([-x(6,end) x(7,end)]-[up])./[np-up];
+
+
+sdir = (ocp.parameter(2));
+ocp.set_value(sdir, ndir);
+
+l   = ocp.variable( 1 );
+pt  = ocp.parameter( 1, 2 );
+dir = ocp.parameter( 1, 2 );
+ocp.subject_to( pt + l*dir >= costs )
+        
+ocp.minimize(-l)
+ocp.set_value(pt,bp_pts(i,:));
+ocp.set_value(dir,ndir);
+ocp.solve()
+J(i,:) = (ocp.value(costs));
+Jprime(i,:) = ocp.value([x(6,end) x(7,end)]);
+UARRAY(:,i) = ocp.value(u);
+end
+
+%%
+
+
+
 tic;
 
 timehorizon =50;

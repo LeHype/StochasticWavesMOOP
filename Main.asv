@@ -1,18 +1,88 @@
 %Multiobjective OCP: Initialize OCP and set cost function and disturbance
 timehorizon =50;
 timestep = 0.4;
+
+[ocp,x,u,d] = initializeOCP(timehorizon,timestep);
+
+% opti.set_initial(sol1.value_variables());
+
+ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+
+costs= [-x(6,end) x(7,end)];
+
+[p_params,up,np, ep, norm_costfun] = Jank_scalarize_moocp( ocp, costs, method="nbi" );
+
+
+%%
+[ocp bp_pts,spt,ndir] = NewJank( ocp,ep, p_params, 15);
+ocp.set_value(spt,bp_pts(1,:));
+
+%%
+ocpA = cell(20,1);
+UARRAY = zeros((timehorizon/timestep)+1,20);
+for i = 1:20
+    ocpA{i}=ocp.copy();
+end
+%%
+J = zeros(15,2);
+
+parfor i = 1:15
+    disp(i)
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 
 
-%% Specify Pareto algorythm 
-Algo = 'nbi';   %Options are awds or nbi as of now
-%%
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
+costs= ([-x(6,end) x(7,end)]-[up])./[np-up];
 
-%Take Both Costs
 
-costs = ([-x(6,end) x(7,end)]);
+sdir = (ocp.parameter(2));
+ocp.set_value(sdir, ndir);
+
+l   = ocp.variable( 1 );
+pt  = ocp.parameter( 1, 2 );
+dir = ocp.parameter( 1, 2 );
+ocp.subject_to( pt + l*dir >= costs )
+        
+ocp.minimize(-l)
+ocp.set_value(pt,bp_pts(i,:));
+ocp.set_value(dir,ndir);
+ocp.solve()
+J(i,:) = (ocp.value(costs));
+Jprime(i,:) = ocp.value([x(6,end) x(7,end)]);
+end
+
+%%
+
+
+
+tic;
+
+timehorizon =50;
+timestep = 0.4;
+weight = [0:1/20:1];
+solA = cell(20,1);
+ocpA = cell(20,1);
+UARRAY = zeros((timehorizon/timestep)+1,20);
+for i = 1:20
+    ocpA{i}=ocp.copy();
+end
+J = zeros(2,20);
+parfor i = 1:20
+
+ [ocpA{i},x,u,d] = initializeOCP(timehorizon,timestep);
+ costs = [x(6,end) x(7,end)];
+ ocpA{i}.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+ ocpA{i}.minimize(costs(1)*weight(i)+costs(2)*(1-weight(i)));
+ solA{i}=ocpA{i}.solve();
+
+ UARRAY(:,i) = (solA{i}.value(u));
+ocpA{i} = [];
+ J(:,i) = [solA{i}.value(x(6,end)) solA{i}.value(x(7,end))];
+
+end
+disp('Computation took')
+disp(toc);
 
 %% Here the ocp is scalarized and then the chosen pareto Algorythm is run
 switch Algo
@@ -30,11 +100,11 @@ end
 
 
 %% Plotting the Pareto Front  \\This is super jank 
-J = [];
+% J = [];
 J2 = [];
-for i = 1:length(sol)
-    J = [J; sol(i).value(costs)];
-end
+% for i = 1:length(sol)
+%     J = [J; sol(i).value(costs)];
+% end
 NonDomInc = ParetoFilter(J);
 for i = 1:length(NonDomInc)
     J2(i,:) = [[J(NonDomInc(i),:)],NonDomInc(i)];
@@ -52,7 +122,7 @@ end
 
 %% Plot if wanted
 time = [0:timestep:timehorizon];
-i = 16;
+i = 15;
 figure(i+10)
 subplot(2,2,1)
 plot(time,sol(i).value(x(2,:)))
