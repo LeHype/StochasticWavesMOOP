@@ -1,9 +1,25 @@
-function [solA] = ParalellNBI(timehorizon,timestep,nPoints,NumCores)
-NumInc =round(timehorizon/(timestep));
+function [solA] = ParalellNBI(timehorizon,timestep,nPoints,NumCores,args)
+arguments
+    timehorizon  (1,1) {mustBeNumeric}
+    timestep     (1,1) {mustBeNumeric}
+    nPoints      (1,1) {mustBeNumeric}
+    NumCores     (1,1) {mustBeNumeric}
+    args.x0      (7,1) {mustBeNumeric} = zeros(7,1)
+    args.ts      (1,1) {mustBeNumeric} = 0.0
+end
 
+NumInc =round(timehorizon/(timestep));
+if all(args.x0 == 0) 
 [ocp,x,u,d,x0] = initializeOCP(timehorizon,timestep);
 
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+
+else
+  [ocp,x,u,d,x0] = initializeOCP(timehorizon,timestep,x0=args.x0);
+timeshift = args.ts;
+  ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep+timeshift:timestep:(d.length()*timestep)+timeshift]));
+end
+  
 costs= ([-x(6,end) x(7,end)]);
 ocp.minimize( costs*[1 ; 1E-4]);
 sol1 = ocp.solve();
@@ -88,11 +104,18 @@ if j>1
 end
  solprev = ocp.solve();
  sol = struct;
+ ParetoParameters = struct;
+ ParetoParameters.searchdirection=ndir;
+ ParetoParameters.startingpoint=bp_pts(j,:);
+ ParetoParameters.up = up;
+ ParetoParameters.np = np;
+ sol.startingpoint=bp_pts(j,:);
  sol.x = solprev.value(x);
  sol.u = solprev.value(u);
  sol.stats = solprev.stats;
  sol.warmstart=warmstart;
  sol.time=toc(startinner);
+ sol.ParetoParameters=ParetoParameters;
  solA = [solA sol];
  
  
