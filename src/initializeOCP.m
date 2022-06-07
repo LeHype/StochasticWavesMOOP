@@ -1,15 +1,16 @@
-function [ocp,x,u,disturbance] = initializeOCP(timehorizon,dt,args)
+function [ocp,x,u,disturbance,x0] = initializeOCP(timehorizon,dt,args)
 arguments
     timehorizon  (1,1) {mustBeNumeric}
     dt           (1,1) {mustBeNumeric}
     args.solver  (1,:) {mustBeText} = 'ipopt'
     args.foh     (1,1) logical = true
+    args.x0      (7,1) {mustBeNumeric} = zeros(7,1)
 end
 
 %% Number of increments is timehorizon/dt (+1 if foh)
 NumInc =round(timehorizon/(dt));
 
-
+x0 = args.x0;
 
 %Construct the basic OCP from the ODE . only return the ode
 %object. Will not apply disturbance and cost function. 
@@ -30,8 +31,8 @@ wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
                             cost_damage(x,u)
                             ];
 
-persistent x0
-if isempty(x0)
+
+if all(x0 == 0) 
 disp('I ran this')
     x0 = zeros(7,1);
     for i = 1:100
@@ -48,6 +49,7 @@ Path(i,1:7) = transpose(full((evalf(x0))));
  
 end
     end
+x0=full(evalf(x0));
 end
 % To visualize execute:
 if (false)
@@ -66,7 +68,7 @@ end
 x_box = [-Inf Inf; -Inf, Inf; -Inf Inf; -Inf, Inf; -Inf, Inf;-Inf, Inf;-Inf, Inf];
 u_box = [0 33^2];
 
-[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, NumInc, dt, x0=full(evalf(x0)), x_box=x_box, u_box=u_box, nd=1,foh=args.foh);
+[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, NumInc, dt, x0=x0, x_box=x_box, u_box=u_box, nd=1,foh=args.foh);
 disturbance = varout{4};
 
 
