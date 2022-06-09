@@ -1,5 +1,5 @@
 %Multiobjective OCP: Initialize OCP and set cost function and disturbance
-timehorizon =50;
+timehorizon =30;
 timestep = 0.4;
 [ocp,x,u,d] = initializeOCP(timehorizon,timestep);
 %Test Gitflow again
@@ -12,13 +12,13 @@ ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*ti
 
 %Take Both Costs
 
-costs = ([-x(6,end) x(7,end)]);
+costs = ([x(6,end) x(7,end)]);
 
 %% Here the ocp is scalarized and then the chosen pareto Algorythm is run
 switch Algo
     case 'nbi'
         [p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="nbi" );
-        [sol, ~] = nbi2d( ocp,ep, p_params, 15);
+        [sol, ~] = nbi2d( ocp,ep, p_params, 7);
     case 'awds'
         [p_params, ep, norm_costfun] = scalarize_moocp( ocp, costs, method="wmm" );
         p_params= transpose(p_params);
@@ -52,7 +52,7 @@ end
 
 %% Plot if wanted
 time = [0:timestep:timehorizon];
-i = 15;
+i = 4;
 figure(i+10)
 subplot(2,2,1)
 plot(time,sol(i).value(x(2,:)))
