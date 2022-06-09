@@ -50,6 +50,8 @@ Path(i,1:7) = transpose(full((evalf(x0))));
 end
     end
 x0=full(evalf(x0));
+x0(6) =0;
+x0(7) =0;
 end
 % To visualize execute:
 if (false)

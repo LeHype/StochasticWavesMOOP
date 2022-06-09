@@ -4,7 +4,7 @@ NumInc =round(timehorizon/(timestep));
 [ocp,x,u,d,x0] = initializeOCP(timehorizon,timestep);
 
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
-costs= ([-x(6,end) x(7,end)]);
+costs= ([x(6,end) x(7,end)]);
 ocp.minimize( costs*[1 ; 1E-4]);
 sol1 = ocp.solve();
 ep(1,:) = sol1.value(costs);
@@ -66,7 +66,7 @@ bp_pts = weights(1,:)'.*ep(1,:) + weights(2,:)'.*ep(2,:);
 
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
-costs= ([-x(6,end) x(7,end)]-[up])./[np-up];
+costs= ([x(6,end) x(7,end)]-[up])./[np-up];
 
 
 sdir = (ocp.parameter(2));
