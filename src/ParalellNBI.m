@@ -12,7 +12,8 @@ NumInc =round(timehorizon/(timestep));
 if all(args.x0 == 0) 
 [ocp,x,u,d,x0] = initializeOCP(timehorizon,timestep);
 
-ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
+timeshift = args.ts;
+ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep+timeshift:timestep:(d.length()*timestep)+timeshift]));
 
 else
   [ocp,x,u,d,x0] = initializeOCP(timehorizon,timestep,x0=args.x0);
@@ -20,7 +21,7 @@ timeshift = args.ts;
   ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep+timeshift:timestep:(d.length()*timestep)+timeshift]));
 end
   
-costs= ([-x(6,end) x(7,end)]);
+costs= ([x(6,end) x(7,end)]);
 ocp.minimize( costs*[1 ; 1E-4]);
 sol1 = ocp.solve();
 ep(1,:) = sol1.value(costs);
@@ -82,7 +83,7 @@ bp_pts = weights(1,:)'.*ep(1,:) + weights(2,:)'.*ep(2,:);
 
 ocp.set_value(d,arrayfun(@(t) StochasticWave(t),[timestep:timestep:d.length()*timestep]));
 
-costs= ([-x(6,end) x(7,end)]-[up])./[np-up];
+costs= ([x(6,end) x(7,end)]-[up])./[np-up];
 
 
 sdir = (ocp.parameter(2));
@@ -98,7 +99,7 @@ ocp.set_value(pt,bp_pts(j,:));
 ocp.set_value(dir,ndir);
 warmstart='false';
 if j>1
-     ocp.set_initial(solprev.value_variables)
+%      ocp.set_initial([x(:); u(:); ocp.lam_g], solprev.value([x(:); u(:); ocp.lam_g]))
      solprev.delete()
      warmstart='true';
 end
