@@ -3,8 +3,13 @@ persistent Gamma_lu
 global seedPhrase
 global Gamma_nu
 global IndividualWaves
-seedPhrase = 1;
-
+seedPhrase = 2;
+if (t>100)
+     seedPhrase = 3;
+end
+if (t>100)
+     seedPhrase = 4;
+end
 rng(seedPhrase,'philox');
 
 if nargin < 5
@@ -22,6 +27,7 @@ end
 if nargin < 2
     T_wave = 10; % Period of dominant Wave 
 end
+
 w_end = 2*2*pi*(1/T_wave);
 % w_end = 0.99999;
 if isempty(Gamma_lu)
@@ -44,5 +50,5 @@ for i=1:length(DataSample)
     IndividualWaves(i)= Ak(DataSample(i)).*Gamma(DataSample(i)).*sin(DataSample(i).*t+randomShift(i));
 end
 
-
+waveDisturbance = waveDisturbance*1;
 end

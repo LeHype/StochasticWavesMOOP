@@ -1,4 +1,4 @@
-function [ocp,x,u,disturbance,x0] = initializeOCP(timehorizon,dt,args)
+function [ocp,x,u,disturbance,x0,x0_p] = initializeOCP(timehorizon,dt,args)
 arguments
     timehorizon  (1,1) {mustBeNumeric}
     dt           (1,1) {mustBeNumeric}
@@ -35,22 +35,24 @@ wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
 if all(x0 == 0) 
 disp('I ran this')
     x0 = zeros(7,1);
-    for i = 1:100
-    if i <=100
+    for i = 1:130
+
     
         x0 = integrator_step_disturbed(x0,[0],1,wave_dgl,StochasticWave(i));
         Path(i,1:7) = transpose(full((evalf(x0))));
         Path(i,8) = StochasticWave(i);
-    else
-        x0= integrator_step_disturbed(x0,[0],1,wave_dgl,0);
+
 
 
 Path(i,1:7) = transpose(full((evalf(x0))));
  
-end
+
     end
 x0=full(evalf(x0));
 end
+x0(6)=0;
+x0(7)=0;
+%%make sure the energy is reset to zero
 % To visualize execute:
 if (false)
 figure(1);
@@ -68,10 +70,11 @@ end
 x_box = [-Inf Inf; -Inf, Inf; -Inf Inf; -Inf, Inf; -Inf, Inf;-Inf, Inf;-Inf, Inf];
 u_box = [0 33^2];
 
-[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, NumInc, dt, x0=x0, x_box=x_box, u_box=u_box, nd=1,foh=args.foh);
+[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, 7, 1, NumInc, dt,x0='no', x_box=x_box, u_box=u_box, nd=1,foh=args.foh);
+ocp.set_value(u(1),0); %% first value for u has to be zero. 
 disturbance = varout{4};
-
-
+x0_p = varout{2};
+ocp.set_value(x0_p,x0);
 
 
 %%
@@ -123,13 +126,14 @@ end
 % end
 
 
-function cost = cost_energy(x, u, d)
+function [cost,E1,E2,E3,E4] = cost_energy(x, u, d)
     persistent Ch S R0
     
     if isempty(Ch) || isempty(S) || isempty(R0)
         load('/home/heib/Documents/HIWI/Flaßkamp/WaveHarvesting/DEA-Wave-Harvesting/PolySurge_inputs.mat', 'Ch', 'S', 'R0');
     end
     cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
+    
 end
 
 function cost = cost_damage(x, u, ~, ~)   

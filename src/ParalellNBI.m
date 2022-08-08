@@ -45,8 +45,9 @@ end
 
 
 if isempty(gcp('nocreate'))
-    parpool(NumCores);
-    NumWorkers = gcp('nocreate').NumWorkers;
+     parpool(NumCores);
+     NumWorkers = gcp('nocreate').NumWorkers;
+
 else
     NumWorkers = gcp('nocreate').NumWorkers;
     if NumWorkers ~= NumCores
@@ -99,11 +100,15 @@ ocp.set_value(pt,bp_pts(j,:));
 ocp.set_value(dir,ndir);
 warmstart='false';
 if j>1
-%      ocp.set_initial([x(:); u(:); ocp.lam_g], solprev.value([x(:); u(:); ocp.lam_g]))
+%       ocp.set_initial([x(:); u(:); ocp.lam_g], solprev.value([x(:); u(:); ocp.lam_g]))
+      ocp.set_initial(x,sol.x)
+      ocp.set_initial(u(2:end),sol.u(2:end))     
+      ocp.set_initial(ocp.lam_g,lamG)
      solprev.delete()
      warmstart='true';
 end
  solprev = ocp.solve();
+ lamG = ocp.value(ocp.lam_g);
  sol = struct;
  ParetoParameters = struct;
  ParetoParameters.searchdirection=ndir;
