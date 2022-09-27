@@ -17,7 +17,7 @@ if args.DrawDebug
 
     x1= [0 1];
     y1= [NewStochasticWave(0) NewStochasticWave(increment)];
-    p = plot(x1,y1)
+    p = plot(x1,y1,'LineWidth',6)
 
     x2 = [];
     y2 = [];
@@ -70,7 +70,7 @@ Gamma = @(w) interp1(Gamma_nu(:,1), Gamma_nu(:,2), w);
 
 randomShift = rand(1,length(DataSample))*2*pi;
 
-randomShift= randomShift*0;
+
 waveDisturbance=0;
 IndividualWaves = zeros(length(DataSample),1);
 for i=1:length(DataSample)

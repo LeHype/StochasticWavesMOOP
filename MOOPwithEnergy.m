@@ -22,10 +22,10 @@ load(PathToParameters);
 
 % x0 = [      0.0961 -0.2059 214.7006     293.8507    261.3057 0 0 0 0 0 0 0]';
 
-timehorizon = 40;                           % shoud be self explanatory
-timestep = 0.7;                             % shoud be self explanatory
+timehorizon = 100;                           % shoud be self explanatory
+timestep = 0.5;                             % shoud be self explanatory
 nHorizon = round(timehorizon/timestep); 
-nPoints = 6;                                % Number of Pareto Points
+nPoints = 10;                                % Number of Pareto Points
 time = [0:timestep:(nHorizon)*timestep];    % Create array with discrete time steps
 
 % the creation of the ocp object is encapsulated in this function.
@@ -34,7 +34,9 @@ time = [0:timestep:(nHorizon)*timestep];    % Create array with discrete time st
 
 
 %Set the disturbance to the wave function
-ocp.set_value(d,arrayfun(@(t)NewStochasticWave(t),[0:timestep:((d.length()-1)*timestep)]));
+% ocp.set_value(d,arrayfun(@(t)NewStochasticWave(t),[0:timestep:((d.length()-1)*timestep)]));
+
+ocp.set_value(d,arrayfun(@(t) FBMStochasticWave(t),[0:timestep:((d.length()-1)*timestep)]));
 
 %Define Storage Function (Not relevant for OCP)
 Storage_Function =  @(x,u) 0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u +0.5*x(3:5)'*Q*x(3:5); 
@@ -47,7 +49,7 @@ costfun = ([x(6,end) x(7,end)]);
 [p_params, ep_ocp, w_ep] = scalarize_moocp( ocp, costfun, method="ps", normalize='fix' );
 
 %% Calculate a single Point on the Pareto front 
-POINT = 1;   
+POINT = 3;   
 ep = ep_ocp;
 weights = linspace(1,0,nPoints);
 weights(1) = weights(1)-1E-3;
@@ -124,9 +126,9 @@ SFSAVE = StorageF;
 save ('100secondsOCPLowParetoPoint.mat', 'XSAVE','USAVE','DSAVE','SFSAVE','time')
 %%  This part runs the normal Pareto optimization. The solutions
 %% Are stored in the solEE object. 
-
-solEE = nbi2d( ocp, ep_ocp, p_params, nPoints );
- figure(12)
+% 
+% solEE = nbi2d( ocp, ep_ocp, p_params, nPoints );
+%  figure(12)
  for i = 1:nPoints
 scatter(solEE(i).value(x(6,end)),solEE(i).value(x(7,end)),200,'filled')
 hold on
