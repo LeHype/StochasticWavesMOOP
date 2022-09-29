@@ -5,13 +5,12 @@ global PathToParameters
 PathToParameters= 'C:\Users\MKH\Lennart\StochasticWavesMOOP\src\PolySurge_inputs.mat';
 load(PathToParameters);
 %%
-timehorizon = 500;                           % shoud be self explanatory
+timehorizon = 800;                          % shoud be self explanatory
 timestep = 0.2;                             % shoud be self explanatory
 nHorizon = round(timehorizon/timestep); 
                              % Number of Pareto Points
 time = [0:timestep:(nHorizon)*timestep];    % Create array with discrete time steps
-MPCtimehorizon = 30;
-filename = ['StochasticWave,' datestr(now,'DD_HH_MM') '.mat'];
+ocp_t = time;
 
 
 [ocp,x,u,d,x0,x0_p] = initializeOCPENERGY(timehorizon,timestep);
@@ -74,6 +73,10 @@ ocp_u = sol(Point).value(u);
 OCP = @(t) interp1(time,ocp_x(2,:),t);
 OCP_U = @(t) interp1(time,ocp_u,t);
 %% After confirming the time step is adequate start MPC here
+for jj = 1:20
+MPCtimehorizon = 5+5*jj;
+filename = ['StochasticWave,' datestr(now,'DD_HH_MM') '_MPC_Horizon_' num2str(MPCtimehorizon) '.mat'];
+
 
 f3 = figure(3)
 subplot(3,1,1)
@@ -141,8 +144,8 @@ end
 f5 = figure(5)
 plot(AppliedSignal(2,:)-arrayfun(@(t) OCP_U(t),[0:timestep:AppliedSignal(1,end)]))
 
-save(filename ,'OCP','OCP_U','ResultsMPC','f1','f2','f3','f4','f5')
-
+save(filename ,'ocp_t','OCP','OCP_U','ResultsMPC','f1','f2','f3','f4','f5')
+end
 %% TRY out different stuff to get turnpike visualized
 i = 14;
 f5 = figure(12)

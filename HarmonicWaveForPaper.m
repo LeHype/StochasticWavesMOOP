@@ -2,15 +2,15 @@
 %       - Find global weight for weighted sum. 
 %       - 
 global PathToParameters 
-PathToParameters= '/home/heib/Documents/HIWI/Flaßkamp/WaveHarvesting/DEA-Wave-Harvesting/PolySurge_inputs.mat';
+PathToParameters= 'C:\Users\MKH\Lennart\StochasticWavesMOOP\src\PolySurge_inputs.mat';
 load(PathToParameters);
 %%
-timehorizon = 100;                           % shoud be self explanatory
+timehorizon = 500;                           % shoud be self explanatory
 timestep = 0.2;                             % shoud be self explanatory
 nHorizon = round(timehorizon/timestep); 
                              % Number of Pareto Points
 time = [0:timestep:(nHorizon)*timestep];    % Create array with discrete time steps
-MPCtimehorizon = 10;
+MPCtimehorizon = 30;
 filename = ['Harmonic_Wave,' datestr(now,'DD_HH_MM') '.mat'];
 
 [ocp,x,u,d,x0,x0_p] = initializeOCPENERGY(timehorizon,timestep);
@@ -18,6 +18,7 @@ monoW = monochromaticWave();
 ocp.set_value(d,arrayfun(@(t) monoW(t),[0:timestep:((d.length()-1)*timestep)]));
 
 costfun = ([x(6,end) x(7,end)]);
+
 p_params = ocp.parameter(2,1);
 ocp.minimize( costfun*p_params );
 % [p_params, ep_ocp, w_ep] = scalarize_moocp( ocp, costfun, method='ws', normalize='fix' );
@@ -58,7 +59,7 @@ d = sol(Point).value(d);
 
 U = @(t) interp1(time,sol(Point).value(u),t,'previous');  %% Zero order hold
 validationdgl = @(t,x) [Ac * x(1:5) - Bc * 1e6 * U(t) * gamma * x(2) + Bc * monoW(t)];
-k = ode89(validationdgl,[0,100],x0(1:5));
+k = ode89(validationdgl,[0,timehorizon],x0(1:5));
 f2 = figure(2)
 plot(k.x,k.y(2,:))
 hold on 
@@ -67,8 +68,10 @@ plot(time,sol(Point).value(x(2,:)))
 
 RMSE = SignalDifference(k.x,k.y(2,:),time,sol(Point).value(x(2,:)))
 
-OPC = @(t) interp1(time,sol(Point).value(x(2,:)),t);
-OPC_U = @(t) interp1(time,sol(Point).value(u),t);
+ocp_x = sol(Point).value(x);
+ocp_u = sol(Point).value(u);
+OCP = @(t) interp1(time,ocp_x(2,:),t);
+OCP_U = @(t) interp1(time,ocp_u,t);
 %% After confirming the time step is adequate start MPC here
 
 f3 = figure(3)
@@ -129,12 +132,28 @@ end
 f4 = figure(4)
 for i = 1:length(starttime)
   
-Divergence = ResultsMPC{i}.u-arrayfun(@(t) OPC_U(t),ResultsMPC{i}.time);
+Divergence = ResultsMPC{i}.u-arrayfun(@(t) OCP_U(t),ResultsMPC{i}.time);
 plot(ResultsMPC{i}.time,Divergence)
 hold on 
 end
 f5 = figure(5)
-plot(AppliedSignal(2,:)-arrayfun(@(t) OPC_U(t),[0:timestep:AppliedSignal(1,end)]))
+plot(AppliedSignal(2,:)-arrayfun(@(t) OCP_U(t),[0:timestep:AppliedSignal(1,end)]))
+
+save(filename ,'OCP','OCP_U','ResultsMPC','f1','f2','f3','f4','f5')
+
+
+%% TRY out different stuff to get turnpike visualized
+i = 10;
+f5 = figure(12)
+
+plot(ResultsMPC{i}.time,(ResultsMPC{i}.u-arrayfun(@(t) OCP_U(t), ResultsMPC{i}.time)).^2)
+hold on 
+
+
+
+
+
+
 
 
 
@@ -144,7 +163,7 @@ sig2 = @(t) interp1(t2,sig2,t);
 RMSE = 0;
 for i = 1:length(t1)
     RMSE = RMSE + (sig1(i)-sig2(t1(i)))^2;
-save(filename ,'OPC','OPC_U','ResultsMPC','f1','f2','f3','f4','f5')
+
 
 end
 RMSE = sqrt(RMSE/length(t1));
