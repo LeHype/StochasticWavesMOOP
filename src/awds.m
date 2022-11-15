@@ -28,6 +28,11 @@ end
 ocp.set_value( p_params, newWeight );
 if ~isempty(parentalSol)
     ocp.set_initial( [ocp.x; ocp.lam_g], parentalSol.value([ocp.x; ocp.lam_g]) )
+
+%     solver_opt = struct('warm_start_init_point', 'yes', 'mu_init', 1e-6, 'warm_start_mult_bound_push',1e-8, ...
+%             'warm_start_slack_bound_push', 1e-8, 'warm_start_bound_push', 1e-6, ...
+%             'warm_start_bound_frac',1e-6, 'warm_start_slack_bound_frac',1e-8,'print_level',1);
+%     ocp.solver('ipopt', struct(), solver_opt)
 end
 sol = ocp.solve();
 child = sol.value(costfun);

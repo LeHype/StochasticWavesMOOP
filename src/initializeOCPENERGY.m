@@ -1,10 +1,10 @@
-function [ocp,x,u,disturbance,x0,x0_p] = initializeOCP(timehorizon,dt,args)
+function [ocp,x,u,disturbance,x0_p] = initializeOCP(timehorizon,dt,args)
 arguments
     timehorizon  (1,1) {mustBeNumeric}
     dt           (1,1) {mustBeNumeric}
     args.solver  (1,:) {mustBeText} = 'ipopt'
     args.foh     (1,1) logical = true
-    args.x0      (12,1) {mustBeNumeric} = zeros(12,1)
+  
 end
 
 
@@ -12,7 +12,7 @@ global PathToParameters %% Just so one does not have to change it in multiple sc
 %% Number of increments is timehorizon/dt (+1 if foh)
 NumInc =round(timehorizon/(dt));
 
-x0 = args.x0;
+
 
 %Construct the basic OCP from the ODE . only return the ode
 %object. Will not apply disturbance and cost function. 
@@ -30,31 +30,8 @@ wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
                             gamma*x(2)*x(1)*u-u/(R0)
                             ];
 
-%If no x0 is given run a simulation for x seconds so swing
-% the system. The behavior of the system may vary for different
-% initial states but only for the first couple of seconds
-
-if all(x0 == 0) 
-
-    x0 = zeros(12,1);
-    for i = 1:100  %%100 seconds swing in 
-
-    
-        x0 = integrator_step_disturbed(x0,[0],1,wave_dgl,NewStochasticWave(i));
 
 
-
-
-
- 
-
-    end
-x0=full(evalf(x0));
-end
-x0(6)=0;
-x0(7)=0;
-%%make sure the energy is reset to zero
-% To visualize execute:
 %%
 
 %% Basic implementation  
@@ -66,7 +43,7 @@ ocp.set_value(u(1),0);       %% first value for u has to be zero.
 disturbance = varout{4};     
 x0_p = varout{2};            %% Need to include the object of x0 so i can change it outside of the function
 
-ocp.set_value(x0_p,x0);
+
 
 
 
