@@ -30,7 +30,7 @@ WaveTime        = time+SwingInTime;                  % To create a smooth transi
                                                       
 
 % Swing in the system for x seconds and set the initial value
-x0 = SwingIn(SwingInTime,WaveForm);
+x0 = SwingIn(SwingInTime, WaveForm, x0_p);
 
 ocp.set_value(x0_p,x0);
 

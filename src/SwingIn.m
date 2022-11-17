@@ -1,7 +1,8 @@
-function [x0,varargout] = SwingIn(SwingInTime,WaveForm,args)
+function [x0,varargout] = SwingIn(SwingInTime,WaveForm, x0_p, args)
 arguments
     SwingInTime  (1,1) {mustBeNumeric}
     WaveForm     (:,:)   {mustBeText}
+    x0_p
     args.dt      (1,1) {mustBeNumeric} = 0.5
     args.Seed    (1,1) {mustBeNumeric} = 1
 end
@@ -25,9 +26,10 @@ for i = 1:round(SwingInTime/args.dt)
     AngleHist(i)=full(evalf(x0(2)));
     
 end
-x0= [full(evalf(x0)); zeros(7,1)];
+x0= [full(evalf(x0)); zeros(size(x0_p,1)-size(x0,1), 1)];
 varargout{1} = AngleHist;
 varargout{2} = WaveHist;
+
 function x_end = integrator_step_disturbed(x0, u, dt, odefun, d)
 % calculate one integration step with step size dt
 import casadi.*
