@@ -1,10 +1,10 @@
-function [ocp,x,u,disturbance,x0_p] = initializeOCP(timehorizon,dt,args)
+function [ocp,x,u,disturbance,x0_p] = initializeOCPENERGY(timehorizon,dt,args)
 arguments
-    timehorizon  (1,1) {mustBeNumeric}
-    dt           (1,1) {mustBeNumeric}
-    args.solver  (1,:) {mustBeText} = 'ipopt'
-    args.foh     (1,1) logical = true
-  
+    timehorizon     (1,1) {mustBeNumeric}
+    dt              (1,1) {mustBeNumeric}
+    args.solver     (1,:) {mustBeText} = 'ipopt'
+    args.foh        (1,1) logical = true
+    args.get_energy (1,1) logical = false
 end
 
 
@@ -17,34 +17,37 @@ NumInc =round(timehorizon/(dt));
 %Construct the basic OCP from the ODE . only return the ode
 %object. Will not apply disturbance and cost function. 
 
-import casadi.*
 load(PathToParameters ,'Ac', 'Bc', 'gamma','R0');
 % slacks = MX;
-wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
-                            cost_energy(x,u,d);
-                            cost_damage(x,u);
-                            EE1(x,u,d);
-                            EE2(x,u,d);
-                            EE3(x,u,d);
-                            EE4(x,u,d);
-                            gamma*x(2)*x(1)*u-u/(R0)
-                            ];
-
+if args.get_energy
+    wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
+        cost_energy(x,u,d);
+        cost_damage(x,u);
+        EE1(x,u,d);
+        EE2(x,u,d);
+        EE3(x,u,d);
+        EE4(x,u,d);
+        gamma*x(2)*x(1)*u-u/(R0)
+        ];
+    nx = 12;
+else
+    wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
+        cost_energy(x,u,d);
+        cost_damage(x,u);
+        ];
+    nx = 7;
+end
 
 
 %%
 
 %% Basic implementation  
-x_box = [-Inf Inf; -Inf, Inf; -Inf Inf; -Inf, Inf; -Inf, Inf;-Inf, Inf;-Inf, Inf;-Inf, Inf;-Inf, Inf;-Inf, Inf;-Inf, Inf;-Inf, Inf];
 u_box = [0 33^2];
 
-[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, 12, 1, NumInc, dt,x0='no', x_box=x_box, u_box=u_box, nd=1,foh=args.foh);
+[ocp, x, u,varout{1:6}] = ode2ocp(wave_dgl, nx, 1, NumInc, dt, x0='param', u_box=u_box, nd=1, foh=args.foh);
 ocp.set_value(u(1),0);       %% first value for u has to be zero. 
 disturbance = varout{4};     
 x0_p = varout{2};            %% Need to include the object of x0 so i can change it outside of the function
-
-
-
 
 
 end
@@ -52,7 +55,6 @@ end
 
 function x_end = integrator_step_disturbed(x0, u, dt, odefun, d)
 % calculate one integration step with step size dt
-import casadi.*
 
 x0_rk = x0;
 k = casadi.MX( size( x0, 1 ), 4 );
