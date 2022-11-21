@@ -20,15 +20,15 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon,timestep);
+[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=true);
 ocp.solver('ipopt');
-Storage_Function = @(x,u) 0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u +0.5*x(3:5)'*Q*x(3:5); 
+Storage_Function = @(x,u) 0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
 WaveTime        = time+SwingInTime;                  % To create a smooth transition from the swing in the wave 
                                                      % continous after the swing in
                                                       
-
+% ocp.subject_to(u(2:end)==0);
 % Swing in the system for x seconds and set the initial value
 x0 = SwingIn(SwingInTime, WaveForm, x0_p);
 
@@ -72,7 +72,7 @@ plot(time,-sol.x(12,:))
 xlabel('time [s]')
 ylabel('Energy Harvested')
 EGFixFigure;
-l = legend('inplicit energy calculation $\int_{0}^{t} C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\int_{0}^{t} \gamma*\theta*\dot{\theta}u-u/R_0$');
+l = legend('implicit energy calculation $\int_{0}^{t} C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\int_{0}^{t} \gamma*\theta*\dot{\theta}u-u/R_0$');
 set(l,'Interpreter','Latex');
 
 
@@ -83,13 +83,13 @@ plot(time,cost_explicit)
 xlabel('time [s]')
 ylabel('Energy Harvested')
 EGFixFigure;
-l = legend('inplicit energy calculation $-C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\gamma*\theta*\dot{\theta}u-u/R_0$')
+l = legend('implicit energy calculation $-C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\gamma*\theta*\dot{\theta}u-u/R_0$');
 
 set(l,'Interpreter','Latex');
 
 
-ff = figure(3)
-title("Energy decomposition")
+ff = figure(3);
+title("Energy decomposition");
 
 plot(time,sol.x(6,:));
 hold on 

@@ -19,9 +19,9 @@ for i = 1:numel(lines)
   end
 end
 
-f.FontSize =40
+f.FontSize = 18
 try
-f.Legend.FontSize = 40;
+f.Legend.FontSize = 18;
 legendmarkeradjust(10);
 end
 
