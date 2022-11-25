@@ -11,7 +11,7 @@ load(PathToParameters ,'Ac', 'Bc', 'gamma','R0');
 wave_dgl = @(x,u,d) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d];
                               
 x0 = zeros(5,1);
-AngleHist = zeros(SwingInTime/args.dt,1);
+StateHist = zeros(5, SwingInTime/args.dt);
 WaveHist = zeros(SwingInTime/args.dt,1);
 for i = 1:round(SwingInTime/args.dt)
     switch WaveForm
@@ -23,11 +23,11 @@ for i = 1:round(SwingInTime/args.dt)
             x0 = integrator_step_disturbed(x0,[0],args.dt,wave_dgl,FBMStochasticWave(i*args.dt,Seed=args.Seed));
             WaveHist(i) = FBMStochasticWave(i*args.dt,Seed=args.Seed);
     end
-    AngleHist(i)=full(evalf(x0(2)));
+    StateHist(:,i)=full(evalf(x0(:)));
     
 end
 x0= [full(evalf(x0)); zeros(size(x0_p,1)-size(x0,1), 1)];
-varargout{1} = AngleHist;
+varargout{1} = StateHist;
 varargout{2} = WaveHist;
 
 function x_end = integrator_step_disturbed(x0, u, dt, odefun, d)

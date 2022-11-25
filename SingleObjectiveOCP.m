@@ -1,7 +1,7 @@
 global PathToParameters
 PathToParameters= 'src/PolySurge_inputs.mat';
 load(PathToParameters);             
-
+addpath("src\")
 
 %%
 timehorizon     = 200;         % [1-inf]  How long
@@ -19,7 +19,7 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
+[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=true);
 ocp.solver('ipopt');
 Storage_Function = @(x,u) 0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
 
@@ -42,7 +42,7 @@ switch WaveForm
         ocp.set_value(d,arrayfun(@(t) HarmonicWave(t),WaveTime));
 end
 % Set the costfunction
-costfun = (x(6,end));
+costfun = (x(12,end));
 
 ocp.minimize(costfun);
 
