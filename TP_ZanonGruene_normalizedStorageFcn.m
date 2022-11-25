@@ -46,7 +46,8 @@ end
 SR_sym = (x(6,2:end) - x(6,1:end-1)) - repmat(tp.ell, 1, (size(x,2)-1)/length(tp.ell));
 costfun = sum(SR_sym);
 
-ocp.minimize(x(6,end) + x(7,end)*1000);
+w = 1-1e-4;
+ocp.minimize(w*x(6,end) + x(7,end)*(1-w));
 
 ocp.solve()
 SR = ocp.value(SR_sym);
