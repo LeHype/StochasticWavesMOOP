@@ -118,16 +118,17 @@ xf_fixed = ~isempty(xf);
 
 x = [x0, ocp.variable(nx, nSteps+1 - (x0_fixed + xf_fixed)), xf];
 u = [ocp.parameter(nu, foh), ocp.variable(nu, nSteps)];
-if strcmp(args.ds, 'backwards')
-du = [(u(2:end)-u(1:end-1))/dt (u(end)-u(end-1))/dt]';
+if strcmp(args.ds, 'backward')
+du = [(u(2:end)-u(1:end-1))/dt (u(end)-u(end-1))/dt];
 varargout{8} = du;
-elseif strcmp(args.ds, 'forwards')
-du = [0 (u(2:end)-u(1:end-1))/dt]';
+elseif strcmp(args.ds, 'forward')
+du = [0 (u(2:end)-u(1:end-1))/dt];
 varargout{8} = du;
 elseif strcmp(args.ds, 'central')
 du = [ 0 ((u(3:end)-u(2:end-1))/dt +  (u(2:end-1)-u(1:end-2))/dt)/2  ((u(end)-u(end-1))/dt +  (u(end-1)-u(end-2))/dt)/2 ];
 varargout{8} = du;
-
+else 
+    warning('please choose suitable derivative method [backward ,forward, central]')
 end
 
 
@@ -140,7 +141,7 @@ end
 h_integ = casadi.MX(nx, nSteps);
 if args.nd > 0
     for iStep = 1:nSteps
-        h_integ(:, iStep) = integrator_step_disturbed(x(:,iStep), u(:, iStep + (0:foh)), dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
+        h_integ(:, iStep) = integrator_step_disturbed_du(x(:,iStep), u(:, iStep + (0:foh)), dt, odefun, d(:, iStep + (0:foh)), du(:, iStep + (0:foh))) - x(:,iStep+1);
         ocp.subject_to( )
     end
 else
@@ -220,6 +221,30 @@ else
     k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u*[0.5; 0.5], d*[0.5; 0.5]);
     k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u*[0.5; 0.5], d*[0.5; 0.5]);
     k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(:,2),       d(:,2));
+end
+
+x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
+
+end
+
+%%
+function x_end = integrator_step_disturbed_du(x0, u, dt, odefun, d, du)
+% calculate one integration step with step size dt
+import casadi.*
+
+x0_rk = x0;
+k = casadi.MX( size( x0, 1 ), 4 );
+
+if size(u,2) == 1
+    k(:,1) = odefun(x0_rk(:,end)                  , u, d,du);
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u, d,du);
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u, d,du);
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u, d,du);
+else
+    k(:,1) = odefun(x0_rk(:,end)                  , u(:,1),       d(:,1),       du(:,1));
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u*[0.5; 0.5], d*[0.5; 0.5], du*[0.5; 0.5]);
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u*[0.5; 0.5], d*[0.5; 0.5], du*[0.5; 0.5]);
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(:,2),       d(:,2),       du(:,2));
 end
 
 x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';

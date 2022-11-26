@@ -20,9 +20,9 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=true);
+[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
 ocp.solver('ipopt');
-Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2 + 0.5*x(3:5)'*Q*x(3:5)) + 0.5*(C0-gamma*x(2)^2)*u; 
+Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2 + 0.5*x(3:5)'*Q*x(3:5)) + 0.5*(C0-gamma*x(2)^2)*0; 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
 WaveTime        = time+SwingInTime;                  % To create a smooth transition from the swing in the wave 
@@ -30,7 +30,7 @@ WaveTime        = time+SwingInTime;                  % To create a smooth transi
                                                       
 % ocp.subject_to(u(2:end)==0);
 % Swing in the system for x seconds and set the initial value
-x0 = SwingIn(SwingInTime, WaveForm, x0_p);
+[x0, x_hist] = SwingIn(SwingInTime, WaveForm, x0_p);
 
 ocp.set_value(x0_p,x0);
 
@@ -43,10 +43,10 @@ switch WaveForm
         ocp.set_value(d,arrayfun(@(t) HarmonicWave(t),WaveTime));
 end
 % Set the costfunction
-SR_sym = (x(12,2:end) - x(12,1:end-1)) - repmat(tp.ell, 1, (size(x,2)-1)/length(tp.ell));
+SR_sym = (x(6,2:end) - x(6,1:end-1)) - repmat(tp.ell, 1, (size(x,2)-1)/length(tp.ell));
 costfun = sum(SR_sym);
 
-ocp.minimize(-costfun);
+ocp.minimize(x(6,end));
 
 ocp.solve()
 SR = ocp.value(SR_sym);
@@ -62,47 +62,54 @@ cost_explicit = [];
 x_rep = repmat(tp.x, 1, (size(x,2)-1)/length(tp.ell));
 u_rep = repmat(tp.u, 1, (length(u)-1)/length(tp.ell));
 for i = 1:length(sol.x)-1
-    SF = [SF Storage_Function(sol.x(1:5,i) - x_rep(:,i), sol.u(i) - u_rep(:,i))];
+    SF = [SF Storage_Function(sol.x(1:5,i), sol.u(i))];
 end
 %%
 figure(1)
 
 plot(time,sol.x(6,:))
-hold on 
-plot(time,-sol.x(12,:))
-xlabel('time [s]')
+legend_in = {'implicit energy calculation $\int_{0}^{t} C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$'};
+if size(sol.x, 1) >= 12
+    hold on
+    plot(time,-sol.x(12,:))
+    legend_in{2} = 'explicit energy calculation $(\int_{0}^{t} \gamma*\theta*\dot{\theta}u-u/R_0$';
+end
+xlabel('time in s')
 ylabel('Energy Harvested')
 EGFixFigure;
-l = legend('implicit energy calculation $\int_{0}^{t} C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\int_{0}^{t} \gamma*\theta*\dot{\theta}u-u/R_0$');
+l = legend( legend_in{:} );
 set(l,'Interpreter','Latex');
 
 
-figure(2)
-plot(time,-cost_implicit)
-hold on 
-plot(time,cost_explicit)
-xlabel('time [s]')
-ylabel('Energy Harvested')
-EGFixFigure;
-l = legend('implicit energy calculation $-C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\gamma*\theta*\dot{\theta}u-u/R_0$');
-
-set(l,'Interpreter','Latex');
+% figure(2)
+% plot(time,-cost_implicit)
+% hold on 
+% plot(time,cost_explicit)
+% xlabel('time [s]')
+% ylabel('Energy Harvested')
+% EGFixFigure;
+% l = legend('implicit energy calculation $-C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\gamma*\theta*\dot{\theta}u-u/R_0$');
+% 
+% set(l,'Interpreter','Latex');
 
 
 ff = figure(3);
 title("Energy decomposition");
 
 plot(time,sol.x(6,:));
-hold on 
-plot(time,sol.x(8,:));
-plot(time,sol.x(9,:));
-plot(time,sol.x(10,:));
-plot(time,sol.x(11,:));
-
-% plot(time,Validation,'--');
-plot(time,-sol.x(12,:));
-xlabel(['Time'])
-legend(['Total Energy'],['$C_h \dot\Theta^2$'],['$\frac{1}{2} z^T S_r z$'],['$-d \dot\Theta$'],['$\frac{u}{R_0}$'],['Direct Energy Calculation'],'Interpreter','latex','Fontsize',22)
+legend_in = {'Total Energy'};
+if size(sol.x, 1) == 12
+    hold on
+    plot(time,sol.x(8,:));
+    plot(time,sol.x(9,:));
+    plot(time,sol.x(10,:));
+    plot(time,sol.x(11,:));
+    plot(time,-sol.x(12,:));
+    legend_in = [legend_in, '$C_h \dot\Theta^2$','$\frac{1}{2} z^T S_r z$','$-d \dot\Theta$','$\frac{u}{R_0}$','Direct Energy Calculation'];
+end
+legend_in = [legend_in, 'Interpreter','latex','Fontsize', 22];
+xlabel('Time')
+legend(legend_in{:})
 
 function cost = cost_energy(x, u, d)
     persistent Ch S R0

@@ -1,7 +1,7 @@
 global PathToParameters
 PathToParameters= 'src/PolySurge_inputs.mat';
 load(PathToParameters);             
-
+addpath("src\")
 
 %%
 timehorizon     = 200;         % [1-inf]  How long
@@ -19,12 +19,13 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='central');
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='backward');
 
 % [ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
 
 ocp.solver('ipopt');
-Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5)); 
+Storage_Function = @(x,u) (0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5)); 
+% Storage_Function = @(x,u)       0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
 WaveTime        = time+SwingInTime;                  % To create a smooth transition from the swing in the wave 
@@ -55,14 +56,17 @@ sol.x = ocp.value(x);
 sol.u = ocp.value(u);
 sol.time = time;
 sol.d = ocp.value(d);
+sol.du = ocp.value(du);
 %%
+
 SF = [];
-cost_implicit = [];
+cost_implicit = [sol.x(6,2:end)-sol.x(6,1:end-1)];
 cost_explicit = [];
 for i = 1:length(sol.x)
     SF = [SF Storage_Function(sol.x(:,i),sol.u(i))];
-    cost_implicit = [cost_implicit cost_energy(sol.x(:,i),sol.u(i),sol.d(i))];
-%     cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
+%     cost_implicit = [cost_implicit cost_energy(sol.x(:,i),sol.u(i),sol.d(i))];
+    
+     cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
 
 end
 %%

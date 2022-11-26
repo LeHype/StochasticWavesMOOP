@@ -27,7 +27,7 @@ if args.get_energy
         EE2(x,u,d);
         EE3(x,u,d);
         EE4(x,u,d);
-        gamma*x(2)*x(1)*u-u/(R0)
+        gamma*x(2)*u-u/(R0)
         ];
     nx = 12;
 else
@@ -93,12 +93,12 @@ end
 
 
 function cost = cost_energy(x, u, d)
-    persistent Ch S R0
+    persistent Ch S R0 gamma
     global PathToParameters
-    if isempty(Ch) || isempty(S) || isempty(R0)
-        load(PathToParameters ,'Ch', 'S', 'R0');
+    if isempty(Ch) || isempty(S) || isempty(R0) || isempty(gamma)
+        load(PathToParameters ,'Ch', 'S', 'R0', 'gamma');
     end
-    cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
+    cost = (0*Ch*x(1).^2 + 0*x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + gamma*x(2)*x(1).*u + 0*u/R0;
 end
 function E1 = EE1(x, u, d)
     persistent Ch S R0
