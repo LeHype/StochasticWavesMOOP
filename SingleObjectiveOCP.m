@@ -19,9 +19,12 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='central');
+
+% [ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
+
 ocp.solver('ipopt');
-Storage_Function = @(x,u) 0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
+Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5)); 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
 WaveTime        = time+SwingInTime;                  % To create a smooth transition from the swing in the wave 
@@ -59,7 +62,7 @@ cost_explicit = [];
 for i = 1:length(sol.x)
     SF = [SF Storage_Function(sol.x(:,i),sol.u(i))];
     cost_implicit = [cost_implicit cost_energy(sol.x(:,i),sol.u(i),sol.d(i))];
-    cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
+%     cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
 
 end
 %%
@@ -131,13 +134,16 @@ legend(['Total Energy'],['$C_h \dot\Theta^2$'],['$\frac{1}{2} z^T S_r z$'],['$-d
 %     MOOPSolution.ParetoPoint=[ocp.value(x(6,end)) ocp.value(x(7,end))];
 %     ResultsMOOP{i} = MOOPSolution;
 % end
+
 function cost = cost_energy(x, u, d)
-    persistent Ch S R0
+    persistent Ch S R0 gamma
     global PathToParameters
-    if isempty(Ch) || isempty(S) || isempty(R0)
-        load(PathToParameters ,'Ch', 'S', 'R0');
+    if isempty(Ch) || isempty(S) || isempty(R0) || isempty(gamma)
+        load(PathToParameters ,'Ch', 'S', 'R0','gamma');
     end
-    cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
+%     cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
+cost = - d .* x(1)*1e-6  +gamma*x(1)*x(2)*u;
+
 end
 function cost = cost_energy_explicit(x, u, d)
     persistent Ch S R0 gamma

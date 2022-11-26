@@ -2,13 +2,13 @@ global PathToParameters
 PathToParameters= 'src/PolySurge_inputs.mat';
 load(PathToParameters);             
 
-load("tp_explicit_1_0.mat");
+load("tp_implicit_1_0.mat");
 
 %%
 timehorizon     = 200;         % [1-inf]  How long
 timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
-SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
+SwingInTime     = 60;          % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
 WaveForm        = 'Harmonic';  % ['Harmonic' 'Stochastic'] Choose the Wave Distrubance
 
@@ -46,7 +46,7 @@ end
 SR_sym = (x(6,2:end) - x(6,1:end-1)) - repmat(tp.ell, 1, (size(x,2)-1)/length(tp.ell));
 costfun = sum(SR_sym);
 
-ocp.minimize(-costfun);
+ocp.minimize(costfun);
 
 ocp.solve()
 SR = ocp.value(SR_sym);
@@ -56,6 +56,9 @@ sol.u = ocp.value(u);
 sol.time = time;
 sol.d = ocp.value(d);
 %%
+Storage_Function = @(x,u) vecnorm(x)+vecnorm(u); 
+
+
 SF = [];
 cost_implicit = [];
 cost_explicit = [];
@@ -63,6 +66,15 @@ x_rep = repmat(tp.x, 1, (size(x,2)-1)/length(tp.ell));
 u_rep = repmat(tp.u, 1, (length(u)-1)/length(tp.ell));
 for i = 1:length(sol.x)-1
     SF = [SF Storage_Function(sol.x(1:5,i) - x_rep(:,i), sol.u(i) - u_rep(:,i))];
+end
+plot(SF(2:end)-SF(1:end-1)-0.1*SR(1:end-1))
+
+%%
+PSlicesX = zeros(length(tp.ell),5,ceil(length(sol.x(1,:))/length(tp.ell)));
+PSlicesU = zeros(length(tp.ell),ceil(length(sol.x(1,:))/length(tp.ell)));
+PSlicesI = zeros(length(tp.ell),ceil(length(sol.x(1,:))/length(tp.ell)));
+for i = 1:length(tp.ell)
+PSlices(i,:,:) = sol.x(1:5,i:length(tp.ell):end);
 end
 %%
 figure(1)
