@@ -4,8 +4,8 @@ load(PathToParameters);
 addpath("src\")
 
 %%
-timehorizon     = 200;         % [1-inf]  How long
-timestep        = 0.1;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+timehorizon     = 100;         % [1-inf]  How long
+timestep        = 0.01;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
@@ -19,7 +19,7 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='central');
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='subgradient');
 
 % [ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
 
@@ -47,9 +47,11 @@ switch WaveForm
 end
 % Set the costfunction
 costfun = (x(6,end));
-
+% ocp.subject_to(diff(u)/dt<=33*33)
 ocp.minimize(costfun);
-
+for j = 1:(length(u)-1)
+ocp.subject_to(abs(u(j+1)-u(j))<=60)
+end
 ocp.solve()
 sol = struct;
 sol.x = ocp.value(x);
@@ -61,18 +63,22 @@ sol.du = ocp.value(du);
 
 SF = [];
 cost_implicit = [sol.x(6,2:end)-sol.x(6,1:end-1)];
+du = [ 0 ((sol.u(3:end)-sol.u(2:end-1))/timestep +  (sol.u(2:end-1)-sol.u(1:end-2))/timestep)/2  ((sol.u(end)-sol.u(end-1))/timestep +  (sol.u(end-1)-sol.u(end-2))/timestep)/2 ];
+
 cost_explicit = [];
+cost_explicit2 = [];
 for i = 1:length(sol.x)
     SF = [SF Storage_Function(sol.x(:,i),sol.u(i))];
 %     cost_implicit = [cost_implicit cost_energy(sol.x(:,i),sol.u(i),sol.d(i))];
-    
-     cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
+     cost_explicit2 = [cost_explicit2 cost_energy2(sol.x(:,i),sol.u(i),sol.d(i),du(i))];
+    cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
 
 end
 
 plot(SF(2:end)-SF(1:end-1))
 hold on
-plot(cost_implicit)
+% plot(cost_explicit2)
+ plot(cost_implicit)
 xlim([100 120])
 xlim([100 180])
 legend('difference of storage function', 'Supply rate')
@@ -148,14 +154,17 @@ legend(['Total Energy'],['$C_h \dot\Theta^2$'],['$\frac{1}{2} z^T S_r z$'],['$-d
 %     ResultsMOOP{i} = MOOPSolution;
 % end
 
-function cost = cost_energy(x, u, d)
-    persistent Ch S R0 gamma
+function cost = cost_energy2(x, u, d,du)
+    persistent Ch S R0 C0 gamma 
     global PathToParameters
-    if isempty(Ch) || isempty(S) || isempty(R0) || isempty(gamma)
-        load(PathToParameters ,'Ch', 'S', 'R0','gamma');
+    if isempty(Ch) || isempty(S) || isempty(R0) || isempty(C0) || isempty(gamma)
+        load(PathToParameters ,'Ch', 'S', 'R0','C0','gamma');
     end
-%     cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
-cost = - d .* x(1)*1e-6  +gamma*x(1)*x(2)*u;
+%       cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
+%      cost = x(1)*d*1e-6 + 0.5*(C0-gamma*x(2)^2)*du + u/R0 -2*gamma*x(1)*x(2)*u;
+     cost = -1e-6*((Ch*x(1).^2) + x(3:5)'*S*x(3:5)) + x(1)*(d*1e-6 - 2*gamma.*x(2)*u) + 0.5*(C0-gamma*x(2)^2)*du*0;
+
+
 
 end
 function cost = cost_energy_explicit(x, u, d)

@@ -119,6 +119,8 @@ xf_fixed = ~isempty(xf);
 
 x = [x0, ocp.variable(nx, nSteps+1 - (x0_fixed + xf_fixed)), xf];
 u = [ocp.parameter(nu, foh), ocp.variable(nu, nSteps)];
+du = [ocp.parameter(nu, foh), ocp.variable(nu, nSteps)];
+varargout{8} = du;
 if strcmp(args.ds, 'backward')
 du = [(u(2:end)-u(1:end-1))/dt (u(end)-u(end-1))/dt];
 varargout{8} = du;
@@ -143,15 +145,22 @@ h_integ = casadi.MX(nx, nSteps);
 
 
 if args.nd > 0
-    if (args.hasU) 
+    if (strcmp(args.ds,'subgradient')) 
     for iStep = 1:nSteps
         if (iStep == 1)
-           h_integ(:, iStep) = integrator_step_disturbed_du(x(:,iStep), [0 u(:, iStep + (0:foh+1))], dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
+           h_integ(:, iStep) = integrator_step_disturbed_subgradient(x(:,iStep), [0 u(:, iStep + (0:foh+1))], dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
         elseif (iStep == nSteps)
-           h_integ(:, iStep) = integrator_step_disturbed_du(x(:,iStep), [u(:, iStep + (-1:foh)) u(:, iStep + (foh))], dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
+           h_integ(:, iStep) = integrator_step_disturbed_subgradient(x(:,iStep), [u(:, iStep + (-1:foh)) u(:, iStep + (foh))], dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
         else
-        h_integ(:, iStep) = integrator_step_disturbed_du(x(:,iStep), u(:, iStep + (-1:foh+1)), dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
+        h_integ(:, iStep) = integrator_step_disturbed_subgradient(x(:,iStep), u(:, iStep + (-1:foh+1)), dt, odefun, d(:, iStep + (0:foh))) - x(:,iStep+1);
         end
+        ocp.subject_to( )
+    end
+    elseif (strcmp(args.ds,'spline')) 
+    for iStep = 1:nSteps
+
+        h_integ(:, iStep) = integrator_step_disturbed_spline(x(:,iStep), u(:, iStep + (0:foh)), dt, odefun, d(:, iStep + (0:foh)), du(:, iStep + (0:foh))) - x(:,iStep+1);
+       
         ocp.subject_to( )
     end
 
@@ -245,7 +254,7 @@ x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
 end
 
 %%
-function x_end = integrator_step_disturbed_du(x0, u, dt, odefun, d)
+function x_end = integrator_step_disturbed_subgradient(x0, u, dt, odefun, d)
 % calculate one integration step with step size dt
 import casadi.*
 
@@ -263,6 +272,39 @@ else
     k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u(2:3)*[0.5; 0.5], d*[0.5; 0.5], du(2));
     k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u(2:3)*[0.5; 0.5], d*[0.5; 0.5], du(3));
     k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(:,3),       d(:,2), du(4));
+end
+
+x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
+
+end
+
+%%
+function x_end = integrator_step_disturbed_spline(x0, u, dt, odefun, d,du)
+% calculate one integration step with step size dt
+import casadi.*
+
+x0_rk = x0;
+k = casadi.MX( size( x0, 1 ), 4 );
+dd = u(1,1);
+c = du(1,1);
+b = -(3*u(1,1) - 3*u(1,2) + 2*dt*du(1,1) + dt*du(1,2))/dt^2;
+a = (2*u(1,1) - 2*u(1,2) + dt*du(1,1) + dt*du(1,2))/dt^3;
+f = @(t) a*t.^3+b*t.^2+c*t+dd;
+fd = @(t) 3*a*t.^2+2*b*t+c;
+
+
+
+if size(u,2) == 1
+    k(:,1) = odefun(x0_rk(:,end)                  , u, d,du);
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u, d,du);
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u, d,du);
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u, d,du);
+else
+
+    k(:,1) = odefun(x0_rk(:,end)                  , u(1,1),       d(:,1), du(1,1));
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), f(dt/2), d*[0.5; 0.5], fd(dt/2));
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), f(dt/2), d*[0.5; 0.5], fd(dt/2));
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(1,2),       d(:,2), du(1,2));
 end
 
 x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
