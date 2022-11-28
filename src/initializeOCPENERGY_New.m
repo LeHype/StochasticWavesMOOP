@@ -32,7 +32,7 @@ if args.get_energy
         ];
     nx = 12;
 else
-    wave_dgl = @(x,u,d,du) [Ac * x(1:5) - Bc  * u * gamma * x(2) + Bc * d;
+    wave_dgl = @(x,u,d,du) [Ac * x(1:5) - Bc * 1e6  * u * gamma * x(2) + Bc * d;
         cost_energy(x,u,d,du);
          cost_damage(x,u);
         ];
@@ -42,7 +42,7 @@ end
 
 
 %% Basic implementation  
-u_box = [0 (33^2)*1e6];
+u_box = [0 (33^2)];
 
 [ocp, x, u,varout{1:8}] = ode2ocp_new(wave_dgl, nx, 1, NumInc, dt, x0='param', u_box=u_box, nd=1, foh=args.foh,ds=args.ds);
 ocp.set_value(u(1),0);       %% first value for u has to be zero. 
@@ -100,7 +100,7 @@ function cost = cost_energy(x, u, d,du)
     end
 %       cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
 %      cost = x(1)*d*1e-6 + 0.5*(C0-gamma*x(2)^2)*du + u/R0 -2*gamma*x(1)*x(2)*u;
-     cost = -(Ch*x(1).^2 + x(3:5)'*S*x(3:5)) + x(1)*(d - 2*gamma.*x(2)*u) + 0.5*(C0-gamma*x(2)^2)*du;
+     cost = -1e-6*(Ch*x(1).^2 + x(3:5)'*S*x(3:5)) + x(1)*(d*1e-6 - 2*gamma.*x(2)*u) + 0.5*(C0-gamma*x(2)^2)*du;
 
 
 

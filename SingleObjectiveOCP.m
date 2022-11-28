@@ -5,7 +5,7 @@ addpath("src\")
 
 %%
 timehorizon     = 200;         % [1-inf]  How long
-timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+timestep        = 0.1;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
@@ -19,12 +19,12 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='backward');
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='central');
 
 % [ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
 
 ocp.solver('ipopt');
-Storage_Function = @(x,u) (0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5)); 
+Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2 + 0.5*x(3:5)'*Q*x(3:5))+ 0.5*(C0-gamma*x(2)^2)*u; 
 % Storage_Function = @(x,u)       0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
@@ -69,6 +69,15 @@ for i = 1:length(sol.x)
      cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
 
 end
+
+plot(SF(2:end)-SF(1:end-1))
+hold on
+plot(cost_implicit)
+xlim([100 120])
+xlim([100 180])
+legend('difference of storage function', 'Supply rate')
+ylabel ('??')
+EGFixFigure
 %%
 figure(1)
 

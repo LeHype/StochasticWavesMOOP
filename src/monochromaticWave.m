@@ -2,7 +2,9 @@ function waveDisturbance = monochromaticWave(t, T_wave, H_wave)
 persistent Gamma_lu
 
 if nargin < 3
-    H_wave = 0.74;
+%     H_wave = 0.74;
+    H_wave = 0.54;
+
 end
 if nargin < 2
     T_wave = 10;
