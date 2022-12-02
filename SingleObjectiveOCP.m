@@ -1,11 +1,11 @@
 global PathToParameters
 PathToParameters= 'src/PolySurge_inputs.mat';
 load(PathToParameters);             
-addpath("src\")
+
 
 %%
-timehorizon     = 100;         % [1-inf]  How long
-timestep        = 0.01;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+timehorizon     = 300;         % [1-inf]  How long
+timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
@@ -17,14 +17,31 @@ filenameMOOP = ['MOOPStochastic_400seconds.mat'];
                                % If saving use this filename
 
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
+derivative_method = 'subgradient';
+
+
+% Set the costfunction to add component to cost function simply set the 
+% corresponting parameter to 0. For example params = [1 0 -1]' means 
+% 1*first_component - 1*third_component
+% i*u : params = [0 0 1 0 1 -1 -1 ]
+
+params(1)   =  1;       % 1e-6*(Ch*x(1).^2)    
+params(2)   =  1;       % 1e-6*x(3:5)'*S*x(3:5)
+params(3)   =  1;       % u/R0
+params(4)   =  1;       % 1e-6*x(1)*d
+params(5)   =  0;       % 0.5*C0*du
+params(6)   = -0;       % 0.5*gamma*x(2).^2*du
+params(7)   = -0;       % 2*gamma*x(1)*x(2)*u
+
+ 
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep, get_energy=false,ds='subgradient');
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep,ds=derivative_method,params=params);
 
-% [ocp,x,u,d,x0_p] = initializeOCPENERGY(timehorizon, timestep, get_energy=false);
 
+% ocp.set_initial(x(:,2:end), warmstart.x(:,2:end))
+% ocp.set_initial(u(2:end), warmstart.u(2:end))
 ocp.solver('ipopt');
-Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2 + 0.5*x(3:5)'*Q*x(3:5))+ 0.5*(C0-gamma*x(2)^2)*u; 
 % Storage_Function = @(x,u)       0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2+0.5*(C0-gamma*x(2)^2)*u + 0.5*x(3:5)'*Q*x(3:5); 
 
 time            = linspace(0,timehorizon,d.length());% Create array with discrete time steps
@@ -34,6 +51,7 @@ WaveTime        = time+SwingInTime;                  % To create a smooth transi
 % ocp.subject_to(u(2:end)==0);
 % Swing in the system for x seconds and set the initial value
 x0 = SwingIn(SwingInTime, WaveForm, x0_p);
+Storage_Function = @(x,u) 1e-6*(0.5*Mh*x(1)^2 +0.5*Kh*x(2)^2 + 0.5*x(3:5)'*Q*x(3:5))+ 0.5*(C0-gamma*x(2)^2)*u  -x(7); 
 
 ocp.set_value(x0_p,x0);
 
@@ -45,13 +63,12 @@ switch WaveForm
         HarmonicWave = monochromaticWave();
         ocp.set_value(d,arrayfun(@(t) HarmonicWave(t),WaveTime));
 end
-% Set the costfunction
-costfun = (x(6,end));
-% ocp.subject_to(diff(u)/dt<=33*33)
+
+
+costfun = (x(6,end) + Storage_Function(x(:,end),x(:,end))-Storage_Function(x(:,1),x(:,1)))
+
 ocp.minimize(costfun);
-for j = 1:(length(u)-1)
-ocp.subject_to(abs(u(j+1)-u(j))<=60)
-end
+
 ocp.solve()
 sol = struct;
 sol.x = ocp.value(x);
@@ -59,120 +76,98 @@ sol.u = ocp.value(u);
 sol.time = time;
 sol.d = ocp.value(d);
 sol.du = ocp.value(du);
+
+%%
+%Continue to TP_Zanon...
+sol_old = sol;
+%% Run validation ode89 simulation
+
+ [x_ana,u_ana,d_ana,du_ana,t_ana]  = RunODE89Test(sol,params);
+%%
+%redefine parameters if you want
+params(1)   =  0;       % 1e-6*(Ch*x(1).^2)    
+params(2)   =  0;       % 1e-6*x(3:5)'*S*x(3:5)
+params(3)   =   1;       % u/R0
+params(4)   =   0;       % 1e-6*x(1)*d
+params(5)   =   1;       % 0.5*C0*du
+params(6)   =  -1;       % 0.5*gamma*x(2).^2*du
+params(7)   =  -1;       % 2*gamma*x(1)*x(2)*u
 %%
 
 SF = [];
-cost_implicit = [sol.x(6,2:end)-sol.x(6,1:end-1)];
+
+cost_from_ocp = [sol.x(6,1) sol.x(6,2:end)-sol.x(6,1:end-1)];  % the cost that was used in ocp
 du = [ 0 ((sol.u(3:end)-sol.u(2:end-1))/timestep +  (sol.u(2:end-1)-sol.u(1:end-2))/timestep)/2  ((sol.u(end)-sol.u(end-1))/timestep +  (sol.u(end-1)-sol.u(end-2))/timestep)/2 ];
 
-cost_explicit = [];
-cost_explicit2 = [];
+cost_recalculated= [];                              % maybe if we want to calcualte other costs after the fact
+                                % If you want to change the SR 
+
 for i = 1:length(sol.x)
     SF = [SF Storage_Function(sol.x(:,i),sol.u(i))];
-%     cost_implicit = [cost_implicit cost_energy(sol.x(:,i),sol.u(i),sol.d(i))];
-     cost_explicit2 = [cost_explicit2 cost_energy2(sol.x(:,i),sol.u(i),sol.d(i),du(i))];
-    cost_explicit = [cost_explicit cost_energy_explicit(sol.x(:,i),sol.u(i),sol.d(i))];
-
+    cost_recalculated = [cost_recalculated cost_energy(sol.x(:,i),sol.u(i),sol.d(i),du(i),params)];
 end
 
-plot(SF(2:end)-SF(1:end-1))
+SF_ana = [];
+
+
+cost_from_ocp_ana = [x_ana(6,1) x_ana(6,2:end)-x_ana(6,1:end-1)];  % the cost that was used in ocp
+
+cost_recalculated_ana= [];                              % maybe if we want to calcualte other costs after the fact
+                                    % If you want to change the SR 
+for i = 1:length(x_ana)
+    SF_ana = [SF_ana Storage_Function(x_ana(:,i),u_ana(i))];
+    cost_recalculated_ana = [cost_recalculated_ana cost_energy(x_ana(:,i),u_ana(i),d_ana(i),du_ana(i),params)];
+end
+
+
+xlimit = [100 120];
+figure(2)
+
+plot(t_ana(2:end),SF_ana(2:end)-SF_ana(1:end-1))
 hold on
-% plot(cost_explicit2)
- plot(cost_implicit)
-xlim([100 120])
-xlim([100 180])
-legend('difference of storage function', 'Supply rate')
+% plot(t_ana,cost_recalculated_ana)
+plot(t_ana,cost_from_ocp_ana)
+title('Storage function and Supply rate, Analytical')
+xlim (xlimit)
+legend('[Ana] Difference of storage function', '[Ana] Supply rate')
+EGFixFigure
+
+figure (3)
+plot(time(2:end),SF(2:end)-SF(1:end-1))
+hold on
+plot(time,cost_from_ocp)
+
+xlim (xlimit)
+
+
+
+title('Storage function and Supply rate from OCP')
+legend('[OCP] Difference of storage function', '[OCP] supply rate ocp')
 ylabel ('??')
+
 EGFixFigure
 %%
-figure(1)
-
-plot(time,sol.x(6,:))
+figure(5)
+plot(t_ana,u_ana)
 hold on 
-plot(time,-sol.x(12,:))
-xlabel('time [s]')
-ylabel('Energy Harvested')
-EGFixFigure;
-l = legend('implicit energy calculation $\int_{0}^{t} C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\int_{0}^{t} \gamma*\theta*\dot{\theta}u-u/R_0$');
-set(l,'Interpreter','Latex');
+plot(time,sol.u)
+xlabel('time (s)')
+ylabel('voltage squared (v^2)')
+xlim (xlimit)
+legend('voltage analytical' , 'voltage ocp')
+EGFixFigure
 
-
-figure(2)
-plot(time,-cost_implicit)
+figure(6)
+plot(t_ana,rad2deg(x_ana(1,:)))
 hold on 
-plot(time,cost_explicit)
-xlabel('time [s]')
-ylabel('Energy Harvested')
-EGFixFigure;
-l = legend('implicit energy calculation $-C_h \dot{\theta}^2+x^T S x+\frac{u}{R_0}-d(t) \dot{\theta}$' , 'explicit energy calculation $(\gamma*\theta*\dot{\theta}u-u/R_0$');
+plot(time,rad2deg(sol.x(1,:)))
+xlabel('time (s)')
+ylabel('angle of flap (°)')
+xlim (xlimit)
+legend('analytical angle ' , 'angle from ocp')
+EGFixFigure
+%%
+plot(t_ana(2:end),SF_ana(2:end)-SF_ana(1:end-1)-cost_from_ocp_ana(2:end) )
+yline(0)
 
-set(l,'Interpreter','Latex');
-
-
-ff = figure(3);
-title("Energy decomposition");
-
-plot(time,sol.x(6,:));
-hold on 
-plot(time,sol.x(8,:));
-plot(time,sol.x(9,:));
-plot(time,sol.x(10,:));
-plot(time,sol.x(11,:));
-
-% plot(time,Validation,'--');
-plot(time,-sol.x(12,:));
-xlabel(['Time'])
-legend(['Total Energy'],['$C_h \dot\Theta^2$'],['$\frac{1}{2} z^T S_r z$'],['$-d \dot\Theta$'],['$\frac{u}{R_0}$'],['Direct Energy Calculation'],'Interpreter','latex','Fontsize',22)
-
-% p_params = ocp.parameter(2,1);
-% ocp.minimize( costfun*p_params );
-% % [p_params, ep_ocp, w_ep] = scalarize_moocp( ocp, costfun, method='ws', normalize='fix' );
-% 
-% tic
-% nPoints = 15;
-% w1= linspace(0.05, 1-0.05, 15);
-% w = [w1 ;1-w1]';
-% sol = [];
-% ResultsMOOP = cell(nPoints,1);
-% for i = 1:nPoints
-%     ocp.set_value(p_params,w(i,:));
-%     if ~isempty(sol)
-%         if i == 2
-%             solver_opt = struct('warm_start_init_point', 'yes', 'mu_init', 1e-6, 'warm_start_mult_bound_push',1e-8, ...
-%                 'warm_start_slack_bound_push', 1e-8, 'warm_start_bound_push', 1e-6, ...
-%                 'warm_start_bound_frac',1e-6, 'warm_start_slack_bound_frac',1e-8);
-%             ocp.solver('ipopt', struct(), solver_opt)
-%         end
-%        ocp.set_initial([ocp.x; ocp.lam_g], sol(i-1).value([ocp.x; ocp.lam_g]))
-%     end
-%     sol = [sol ocp.solve()];
-%     MOOPSolution = struct;
-%     MOOPSolution.weigths = w(i,:);
-%     MOOPSolution.x = ocp.value(x);
-%     MOOPSolution.u=ocp.value(u);
-%     MOOPSolution.ParetoPoint=[ocp.value(x(6,end)) ocp.value(x(7,end))];
-%     ResultsMOOP{i} = MOOPSolution;
-% end
-
-function cost = cost_energy2(x, u, d,du)
-    persistent Ch S R0 C0 gamma 
-    global PathToParameters
-    if isempty(Ch) || isempty(S) || isempty(R0) || isempty(C0) || isempty(gamma)
-        load(PathToParameters ,'Ch', 'S', 'R0','C0','gamma');
-    end
-%       cost = (Ch*x(1).^2 + x(3:5)'*S*x(3:5) - d .* x(1))*1e-6 + u/R0;
-%      cost = x(1)*d*1e-6 + 0.5*(C0-gamma*x(2)^2)*du + u/R0 -2*gamma*x(1)*x(2)*u;
-     cost = -1e-6*((Ch*x(1).^2) + x(3:5)'*S*x(3:5)) + x(1)*(d*1e-6 - 2*gamma.*x(2)*u) + 0.5*(C0-gamma*x(2)^2)*du*0;
-
-
-
-end
-function cost = cost_energy_explicit(x, u, d)
-    persistent Ch S R0 gamma
-    global PathToParameters
-    if isempty(Ch) || isempty(S) || isempty(R0)
-        load(PathToParameters ,'Ch', 'S', 'R0','gamma');
-    end
-    cost = gamma*x(2)*x(1)*u-u/(R0);
-end
-
+title('reconst')

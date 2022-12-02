@@ -130,7 +130,11 @@ varargout{8} = du;
 elseif strcmp(args.ds, 'central')
 du = [ 0 ((u(3:end)-u(2:end-1))/dt +  (u(2:end-1)-u(1:end-2))/dt)/2  ((u(end)-u(end-1))/dt +  (u(end-1)-u(end-2))/dt)/2 ];
 varargout{8} = du;
+elseif strcmp(args.ds, 'spline')
+du = [ocp.parameter(nu, foh), ocp.variable(nu, nSteps)];
+varargout{8} = du;
 else 
+    varargout{8} = [];
     warning('please choose suitable derivative method [backward ,forward, central]')
 end
 
@@ -252,6 +256,29 @@ end
 x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
 
 end
+%%
+function x_end = integrator_step_disturbed_du(x0, u, dt, odefun, d,du)
+% calculate one integration step with step size dt
+import casadi.*
+
+x0_rk = x0;
+k = casadi.MX( size( x0, 1 ), 4 );
+
+if size(u,2) == 1
+    k(:,1) = odefun(x0_rk(:,end)                  , u, d);
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u, d);
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u, d);
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u, d);
+else
+    k(:,1) = odefun(x0_rk(:,end)                  , u(:,1),       d(:,1),u(:,1));
+    k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u*[0.5; 0.5], d*[0.5; 0.5], u*[0.5; 0.5]);
+    k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u*[0.5; 0.5], d*[0.5; 0.5], u*[0.5; 0.5]);
+    k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u(:,2),       d(:,2), u(:,1));
+end
+
+x_end  = x0_rk + dt / 6 * k * [1 2 2 1]';
+
+end
 
 %%
 function x_end = integrator_step_disturbed_subgradient(x0, u, dt, odefun, d)
@@ -267,7 +294,7 @@ if size(u,2) == 1
     k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u, d,du);
     k(:,4) = odefun(x0_rk(:,end) + dt     * k(:,3), u, d,du);
 else
-    du = [(u(3)-u(1))/2 u(2)-u(1) u(2)-u(1) (u(4)-u(2))/2]/dt;
+    du = [(u(3)-u(1))/2 u(3)-u(2) u(3)-u(2) (u(4)-u(2))/2]/dt;
     k(:,1) = odefun(x0_rk(:,end)                  , u(:,2),       d(:,1), du(1));
     k(:,2) = odefun(x0_rk(:,end) + dt / 2 * k(:,1), u(2:3)*[0.5; 0.5], d*[0.5; 0.5], du(2));
     k(:,3) = odefun(x0_rk(:,end) + dt / 2 * k(:,2), u(2:3)*[0.5; 0.5], d*[0.5; 0.5], du(3));
