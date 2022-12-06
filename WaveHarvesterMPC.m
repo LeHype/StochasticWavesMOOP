@@ -6,9 +6,9 @@
                                % Suggested
                                % values
 
-MPCtimehorizon  = 60;          % [1-70]   MCP Timehorizon. After ~70 seconds the solution does not improve.
-simulation_time = 3000;        % [1-inf]  How long
-timestep        = 0.5;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+MPCtimehorizon  = 40;          % [1-70]   MCP Timehorizon. After ~70 seconds the solution does not improve.
+simulation_time = 300;        % [1-inf]  How long
+timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 Seed            = 4  ;         % [1-10]   Seed of the Wave distrurbance. Seeds [1-10] have been provided.
 Damagereduction = 1;         % [0-1]    This implementation uses multi-criteria Optimization.
@@ -17,16 +17,17 @@ Damagereduction = 1;         % [0-1]    This implementation uses multi-criteria 
                                %          maximizing the harvested energy
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
-WaveForm        = 'Harmonic';% ['Harmonic' 'Stochastic'] Choose the Wave Distrubance
+WaveForm        = 'Stochastic';% ['Harmonic' 'Stochastic'] Choose the Wave Distrubance
 excitation_factor = 1;         % [0.1-2]  Factor for s aling the wave excitation. Warning: The model's accuracy
                                %          is reduced for theta greater than 30°.
                                       
 
-plotting        = true;        % If plotting the solution of the MPC is shown as it progresses.
+plotting        = false;        % If plotting the solution of the MPC is shown as it progresses.
                                % but slows down the algorithm!
 saving          = true;        % If saving, the results will be saved to the "Results" folder.
-filename = ['MPC' WaveForm '_' num2str(simulation_time) 'seconds_Damagereduction_' num2str(Damagereduction) '_Seed_' num2str(Seed) '.mat'];             
-                               % If saving use this filename             
+% filename = ['MPC' WaveForm '_' num2str(simulation_time) 'seconds_Damagereduction_' num2str(Damagereduction) '_Seed_' num2str(Seed) '.mat'];             
+filename = ['MPC_Stochastic_SingleObjective_40seconds.mat'];
+% If saving use this filename             
 derivative_method = 'subgradient';
 % Here, the algorithm starts. User interference is not recomended
 
@@ -51,6 +52,8 @@ weight = [1-Damagereduction Damagereduction];       % Weight for Weighted Sum MO
 % Swing in the system for x seconds and set the initial value
 x0 = SwingIn(SwingInTime,WaveForm,x0_p,Seed=Seed);
 ocp.set_value(x0_p,x0);
+
+
 
 % Set the costfunction and weights
 % costfun = ([x(6,end), x(7,end)]);
@@ -168,6 +171,6 @@ if (saving)
     if ~exist([pwd filesep 'Results'],'dir')
        mkdir('Results')
     end
-    save(['Results' filesep filename],"ResultsMPC",'time')
+    save(['Results' filesep filename],"ResultsMPC",'time','AppliedSignal')
 end
 

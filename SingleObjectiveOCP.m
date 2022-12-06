@@ -4,16 +4,16 @@ load(PathToParameters);
 
 
 %%
-timehorizon     = 250;         % [1-inf]  How long
-timestep        = 0.5;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+timehorizon     = 40;         % [1-inf]  How long
+timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
 WaveForm        = 'Harmonic';  % ['Harmonic' 'Stochastic'] Choose the Wave Distrubance
 
-saving          = false;       % If saving, the results will be saved to the "Results" folder.
+saving          = true;       % If saving, the results will be saved to the "Results" folder.
 
-filenameMOOP = ['MOOPStochastic_400seconds.mat'];             
+filename = ['GroundTruth_Harmonic_SingleObjective.mat'];             
                                % If saving use this filename
 
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
@@ -77,7 +77,12 @@ sol.u = ocp.value(u);
 sol.time = time;
 sol.d = ocp.value(d);
 sol.du = ocp.value(du);
-
+if (saving)
+    if ~exist([pwd filesep 'Results'],'dir')
+       mkdir('Results')
+    end
+    save(['Results' filesep filename],"sol")
+end
 %%
 %Continue to TP_Zanon...
 sol_old = sol;
