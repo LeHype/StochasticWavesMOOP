@@ -3,8 +3,9 @@ PathToParameters= 'src/PolySurge_inputs.mat';
 load(PathToParameters);             
 
 
+
 %%
-timehorizon     = 40;         % [1-inf]  How long
+timehorizon     = 300;         % [1-inf]  How long
 timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
@@ -13,11 +14,12 @@ WaveForm        = 'Harmonic';  % ['Harmonic' 'Stochastic'] Choose the Wave Distr
 
 saving          = true;       % If saving, the results will be saved to the "Results" folder.
 
-filename = ['GroundTruth_Harmonic_SingleObjective.mat'];             
+filename = ['GroundTruth_Harmonic_MultiObjective_8secondPeriod.mat'];             
                                % If saving use this filename
 
 nSteps          = round(timehorizon/timestep);       % Number of discrete timesteps
 derivative_method = 'subgradient';
+Seed            = 4  ;         % [1-10]   Seed of the Wave distrurbance. Seeds [1-10] have been provided.
 
 
 % Set the costfunction to add component to cost function simply set the 
@@ -66,7 +68,7 @@ switch WaveForm
 end
 
 
-costfun = (x(6,end)+ 0.2*x(7,end));
+costfun = (x(6,end)+x(7,end));
 
 ocp.minimize(costfun);
 
