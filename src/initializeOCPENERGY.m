@@ -22,7 +22,7 @@ load(PathToParameters ,'Ac', 'Bc', 'gamma');
 
 wave_dgl = @(x,u,d,du) [Ac * x(1:5) - Bc * 1e6 * u * gamma * x(2) + Bc * d;
                         cost_energy(x,u,d,du,args.params);
-                        d*x(1)*1e-6
+                        ((max(u - 484, 0).^2)*1e-6)
                         ];
 nx = 7;
 

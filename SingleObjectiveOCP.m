@@ -4,7 +4,7 @@ load(PathToParameters);
 
 
 %%
-timehorizon     = 120;         % [1-inf]  How long
+timehorizon     = 250;         % [1-inf]  How long
 timestep        = 0.5;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
@@ -66,7 +66,7 @@ switch WaveForm
 end
 
 
-costfun = (x(6,end));
+costfun = (x(6,end)+ 0.2*x(7,end));
 
 ocp.minimize(costfun);
 
