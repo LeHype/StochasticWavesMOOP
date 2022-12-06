@@ -4,8 +4,8 @@ load(PathToParameters);
 
 
 %%
-timehorizon     = 300;         % [1-inf]  How long
-timestep        = 0.2;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
+timehorizon     = 120;         % [1-inf]  How long
+timestep        = 0.5;         % [0.05-1] MPC timestep, i.e. the discretisation of the ocp.
                                %          A step larger then 1 is not recommended.
 SwingInTime     = 200;         % [100:~]  How long the system is left alone to swing in 
                                %          before the optimal control is applied. 
@@ -25,18 +25,19 @@ derivative_method = 'subgradient';
 % 1*first_component - 1*third_component
 % i*u : params = [0 0 1 0 1 -1 -1 ]
 
-params(1)   =  1;       % 1e-6*(Ch*x(1).^2)    
-params(2)   =  1;       % 1e-6*x(3:5)'*S*x(3:5)
-params(3)   =  1;       % u/R0
-params(4)   =  1;       % 1e-6*x(1)*d
-params(5)   =  0;       % 0.5*C0*du
-params(6)   = -0;       % 0.5*gamma*x(2).^2*du
-params(7)   = -0;       % 2*gamma*x(1)*x(2)*u
+params(1)   =   1;       % 1e-6*(Ch*x(1).^2)    
+params(2)   =   1;       % 1e-6*x(3:5)'*S*x(3:5)
+params(3)   =   1;       % u/R0
+params(4)   =   -1;       % 1e-6*x(1)*d
+params(5)   =   0;       % 0.5*C0*du
+params(6)   =  -0;       % 0.5*gamma*x(2).^2*du
+params(7)   =  -0;       % 2*gamma*x(1)*x(2)*u
+
 
  
 
 %create OCP object and apply wave harvester DGL
-[ocp,x,u,d,x0_p,du] = initializeOCPENERGY_New(timehorizon, timestep,ds=derivative_method,params=params);
+[ocp,x,u,d,x0_p,du] = initializeOCPENERGY(timehorizon, timestep,ds=derivative_method,params=params);
 
 
 % ocp.set_initial(x(:,2:end), warmstart.x(:,2:end))
@@ -65,7 +66,7 @@ switch WaveForm
 end
 
 
-costfun = (x(6,end) + Storage_Function(x(:,end),x(:,end))-Storage_Function(x(:,1),x(:,1)))
+costfun = (x(6,end));
 
 ocp.minimize(costfun);
 
@@ -85,13 +86,13 @@ sol_old = sol;
  [x_ana,u_ana,d_ana,du_ana,t_ana]  = RunODE89Test(sol,params);
 %%
 %redefine parameters if you want
-params(1)   =  0;       % 1e-6*(Ch*x(1).^2)    
-params(2)   =  0;       % 1e-6*x(3:5)'*S*x(3:5)
-params(3)   =   1;       % u/R0
-params(4)   =   0;       % 1e-6*x(1)*d
-params(5)   =   1;       % 0.5*C0*du
-params(6)   =  -1;       % 0.5*gamma*x(2).^2*du
-params(7)   =  -1;       % 2*gamma*x(1)*x(2)*u
+params(1)   =   -1;       % 1e-6*(Ch*x(1).^2)    
+params(2)   =   -1;       % 1e-6*x(3:5)'*S*x(3:5)
+params(3)   =   -1;       % u/R0
+params(4)   =   +1;       % 1e-6*x(1)*d
+params(5)   =   0;       % 0.5*C0*du
+params(6)   =  -0;       % 0.5*gamma*x(2).^2*du
+params(7)   =  -0;       % 2*gamma*x(1)*x(2)*u
 %%
 
 SF = [];
